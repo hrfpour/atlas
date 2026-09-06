@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { distributions } from "@/data/distributions";
 import { relationships } from "@/data/relationships";
+import { prisma } from "@/lib/prisma";
 
 // Gemini API runs server-side only. Use the Node.js runtime (not Edge) for the
 // best compatibility with environment variables on Vercel.
@@ -213,6 +214,25 @@ export async function POST(req: Request) {
         { error: `Model returned an empty response (finishReason: ${reason || "unknown"})` },
         { status: 502 },
       );
+    }
+
+    // ----- persist to the database (non-blocking) -----
+    // Save the latest user turn + the assistant reply so the admin dashboard
+    // can review conversations. Done asynchronously so it never blocks the
+    // response to the user; failures are logged but do not surface as errors.
+    const lastUserMessage =
+      history.filter((m) => m.role === "user").pop()?.content || "";
+    if (lastUserMessage) {
+      prisma.message
+        .createMany({
+          data: [
+            { role: "user", content: lastUserMessage },
+            { role: "assistant", content: reply },
+          ],
+        })
+        .catch((dbErr: unknown) => {
+          console.error("[/api/chat] Failed to save chat to database:", dbErr);
+        });
     }
 
     return NextResponse.json({ reply });

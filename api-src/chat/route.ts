@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import ZAI from "z-ai-web-dev-sdk";
 import { distributions } from "@/data/distributions";
 import { relationships } from "@/data/relationships";
+import { PrismaClient } from "@prisma/client";
 
-// The z-ai-web-dev-sdk relies on Node.js APIs (fetch, env, etc.) so we must
-// run on the Node.js runtime — not the Edge runtime.
 export const runtime = "nodejs";
-// Always treat this route as dynamic; never cache a chat completion.
 export const dynamic = "force-dynamic";
+
+const prisma = new PrismaClient();
 
 type Locale = "fa" | "en";
 
@@ -123,6 +123,22 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
+
+    // Extract the latest user message from history
+    const lastUserMessage = history.filter(m => m.role === "user").pop()?.content || "";
+
+    // Persist both user query and assistant reply into the cloud database asynchronously
+    if (lastUserMessage) {
+      prisma.message.createMany({
+        data: [
+          { role: "user", content: lastUserMessage },
+          { role: "assistant", content: reply },
+        ],
+      }).catch((dbErr) => {
+        console.error("Failed to save chat to database:", dbErr);
+      });
+    }
+
     return NextResponse.json({ reply });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

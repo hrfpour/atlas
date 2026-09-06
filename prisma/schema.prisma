@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -38,5 +38,12 @@ model Feedback {
   email     String?
   locale    String   @default("fa")
   userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  role      String   // 'user' | 'assistant'
+  content   String   // Message content
   createdAt DateTime @default(now())
 }
