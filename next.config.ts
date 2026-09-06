@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
         ...(basePath ? { basePath } : {}),
       }
     : {
-        output: "standalone" as const,
+//        output: "standalone" as const,
       }),
 };
 
