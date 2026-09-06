@@ -1,0 +1,90 @@
+# Build the Next.js app as a static export and deploy to GitHub Pages.
+#
+# Setup (one-time):
+#   1. Push your code to a GitHub repository (e.g. hrfpour/atlas).
+#   2. In the repo: Settings → Pages → Build and deployment → Source = "GitHub Actions".
+#   3. Push to `main` (or trigger manually) — this workflow builds and deploys.
+#
+# The site will be live at https://<owner>.github.io/<repo>/ (if repo is not
+# <owner>.github.io). The basePath is auto-injected at build time from the repo
+# name so assets load correctly.
+#
+# What works on GitHub Pages (static):
+#   - All cards, the relationship map, playground (sliders/charts), CLT tool,
+#     probability calculator, sample generator, distribution fitter,
+#     interactive comparison, all educational sections, quiz.
+#   - The feedback form: falls back to FormSubmit (emails hrfpour@gmail.com).
+#   - Theme toggle, language toggle, font-size control, favorites, search.
+#
+# What does NOT work on GitHub Pages (no server):
+#   - The AI chatbot (/api/chat) — shows a clear "unavailable on static host"
+#     message pointing users to the feedback section.
+#   - The server-side feedback API (/api/feedback) — replaced by FormSubmit.
+#
+# To re-enable the server-side features, deploy to a host that runs Node.js
+# (VPS, Vercel, Netlify Functions): restore the api-src/ folder to src/app/api/
+# and set output: "standalone" in next.config.ts.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || bun install
+
+      - name: Remove server-only API routes (static export)
+        run: rm -rf src/app/api
+
+      - name: Build static export
+        env:
+          STATIC_EXPORT: "1"
+        run: bun run build:static
+
+      - name: Add .nojekyll
+        run: touch out/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
