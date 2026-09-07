@@ -253,6 +253,7 @@ export default function Home() {
           </p>
           <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">{t("footerNote")}</p>
           <p className="mt-2 text-[11px] text-muted-foreground">{t("printHint")}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">{t("cacheHint")}</p>
         </div>
       </footer>
     </div>

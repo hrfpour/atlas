@@ -45,5 +45,6 @@ model Message {
   id        String   @id @default(cuid())
   role      String   // 'user' | 'assistant'
   content   String   // Message content
+  userAgent String?  // Browser/device info of the user (for distinguishing visitors)
   createdAt DateTime @default(now())
 }

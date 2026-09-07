@@ -216,23 +216,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // ----- persist to the database (non-blocking) -----
-    // Save the latest user turn + the assistant reply so the admin dashboard
-    // can review conversations. Done asynchronously so it never blocks the
-    // response to the user; failures are logged but do not surface as errors.
+    // ----- persist to the database -----
+    // Save the latest user turn + the assistant reply. We AWAIT this so that
+    // in serverless environments (Vercel) the function doesn't freeze and
+    // kill the DB write before it completes. Failures are still logged and
+    // do not surface to the user (the reply is already computed).
     const lastUserMessage =
       history.filter((m) => m.role === "user").pop()?.content || "";
+    // Capture the visitor's browser/device so the admin can distinguish
+    // different users (no PII — just User-Agent).
+    const userAgent = req.headers.get("user-agent")?.slice(0, 500) ?? null;
     if (lastUserMessage) {
-      prisma.message
-        .createMany({
+      try {
+        await prisma.message.createMany({
           data: [
-            { role: "user", content: lastUserMessage },
-            { role: "assistant", content: reply },
+            { role: "user", content: lastUserMessage, userAgent },
+            { role: "assistant", content: reply, userAgent },
           ],
-        })
-        .catch((dbErr: unknown) => {
-          console.error("[/api/chat] Failed to save chat to database:", dbErr);
         });
+      } catch (dbErr: unknown) {
+        console.error("[/api/chat] Failed to save chat to database:", dbErr);
+      }
     }
 
     return NextResponse.json({ reply });
