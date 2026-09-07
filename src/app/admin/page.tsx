@@ -71,9 +71,10 @@ function formatTime(d: Date): string {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const jar = cookies();
+  // In Next.js 15+ cookies() and searchParams are async and must be awaited.
+  const [jar, sp] = await Promise.all([cookies(), searchParams]);
   const expected = process.env.ADMIN_PASSWORD;
 
   const authed = (() => {
@@ -82,7 +83,7 @@ export default async function AdminPage({
     return timingSafeEqual(cookieVal, expected);
   })();
 
-  const hasError = searchParams?.err === "1";
+  const hasError = sp?.err === "1";
 
   // --- Not configured ---
   if (!expected) {
