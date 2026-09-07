@@ -22,6 +22,34 @@ type MessageRow = {
   createdAt: Date;
 };
 
+/**
+ * Simple password gate for the admin dashboard.
+ *
+ * Set ADMIN_PASSWORD in your Vercel Environment Variables (Settings →
+ * Environment Variables). Then visit:
+ *   /admin?pwd=YOUR_PASSWORD
+ *
+ * If ADMIN_PASSWORD is not set, the page refuses to render (safer than
+ * leaving it open). This is a lightweight protection — for a production
+ * app with sensitive data, use NextAuth.js or similar.
+ */
+function checkAuth(pwd: string | string[] | undefined): {
+  ok: boolean;
+  reason?: string;
+} {
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    return {
+      ok: false,
+      reason:
+        "ADMIN_PASSWORD is not set. Add it in Vercel → Settings → Environment Variables, then visit /admin?pwd=YOUR_PASSWORD.",
+    };
+  }
+  const provided = Array.isArray(pwd) ? pwd[0] : pwd;
+  if (provided === expected) return { ok: true };
+  return { ok: false, reason: "Wrong or missing password." };
+}
+
 function formatTime(d: Date): string {
   try {
     return d.toLocaleString("en-GB", {
@@ -38,8 +66,44 @@ function formatTime(d: Date): string {
   }
 }
 
-export default async function AdminPage() {
-  // Fetch the latest 100 chat messages, newest first.
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const auth = checkAuth(searchParams.pwd);
+  if (!auth.ok) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background px-4" dir="ltr">
+        <div className="max-w-md rounded-xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Atlas Admin
+          </p>
+          <h1 className="mt-1 text-2xl font-bold">Access denied</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{auth.reason}</p>
+          {auth.reason?.includes("ADMIN_PASSWORD is not set") ? null : (
+            <form className="mt-6 flex gap-2" method="get" action="">
+              <input
+                type="password"
+                name="pwd"
+                placeholder="Password"
+                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-background hover:opacity-90"
+              >
+                Enter
+              </button>
+            </form>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // Auth passed — fetch and show the messages.
   let messages: MessageRow[] = [];
   let dbError: string | null = null;
   try {
@@ -72,12 +136,8 @@ export default async function AdminPage() {
             </p>
           </div>
           <div className="flex gap-2 text-xs">
-            <Badge variant="secondary">
-              {userCount} user
-            </Badge>
-            <Badge variant="secondary">
-              {assistantCount} assistant
-            </Badge>
+            <Badge variant="secondary">{userCount} user</Badge>
+            <Badge variant="secondary">{assistantCount} assistant</Badge>
             <Badge variant="outline">{messages.length} total</Badge>
           </div>
         </header>
@@ -133,12 +193,11 @@ export default async function AdminPage() {
           </div>
         ) : null}
 
-        {/* footer note */}
         <p className="mt-6 text-[11px] text-muted-foreground">
           Messages are persisted in the configured database via the{" "}
           <code className="font-mono">Message</code> Prisma model, written
           asynchronously by the <code className="font-mono">/api/chat</code>{" "}
-          route without blocking the user&rsquo;s response.
+          route. Protected by ADMIN_PASSWORD.
         </p>
       </div>
     </main>
