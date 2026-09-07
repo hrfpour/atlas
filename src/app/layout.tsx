@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     "پواسون",
   ],
   icons: {
-    icon: "/favicon.png",
+    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
 };
 

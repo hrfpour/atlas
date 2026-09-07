@@ -34,11 +34,12 @@ const WELCOME_ID = "welcome";
 /**
  * "Ask the Atlas" — a bilingual AI tutor panel that POSTs to /api/chat.
  *
- * The server route is the only place that talks to the z-ai-web-dev-sdk; this
- * component is purely a client UI that renders the conversation and handles
- * input. Assistant replies are rendered as mixed text + inline LaTeX, and any
- * known distribution id inside a reply is turned into a clickable anchor that
- * jumps to the matching distribution card (#dist-<id>).
+ * The server route (/api/chat) talks to Google Gemini and reads the API key
+ * from the GEMINI_API_KEY environment variable. This component is purely a
+ * client UI that renders the conversation and handles input. Assistant replies
+ * are rendered as mixed text + inline LaTeX, and any known distribution id
+ * inside a reply is turned into a clickable anchor that jumps to the matching
+ * distribution card (#dist-<id>).
  */
 export function Chatbot() {
   const t = useT();
@@ -54,11 +55,19 @@ export function Chatbot() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  // Ref to the scrollable message list (NOT the page). We scroll this container
+  // to its bottom when new messages arrive, so the chat panel scrolls
+  // independently — the page itself is never scrolled by the chatbot.
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the latest message / "thinking" indicator.
+  // Auto-scroll the chat panel (not the page) to the latest message.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = listRef.current;
+    if (el) {
+      // Use 'auto' (instant) instead of 'smooth' so the page doesn't get a
+      // smooth-scroll animation that could also drag the window.
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, thinking]);
 
   // Keep the welcome message in sync when the user toggles locale before
@@ -201,6 +210,7 @@ export function Chatbot() {
 
       {/* message list */}
       <div
+        ref={listRef}
         className="atlas-scroll max-h-96 overflow-y-auto px-4 py-4"
         dir={dir}
       >
@@ -209,7 +219,6 @@ export function Chatbot() {
             <Bubble key={m.id} message={m} dir={dir} />
           ))}
           {thinking ? <ThinkingBubble dir={dir} label={t("chatThinking")} /> : null}
-          <div ref={bottomRef} />
         </div>
       </div>
 
